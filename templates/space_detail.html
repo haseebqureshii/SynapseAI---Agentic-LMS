@@ -1,0 +1,27 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Space: {{ space.name }}</h2>
+<ul>
+    {% for assignment in assignments %}
+        <li>
+            <a href="{{ url_for('assignment_detail', assignment_id=assignment.id) }}">{{ assignment.title }}</a>
+            {% if session.role == 'master' %}
+                - <a href="{{ url_for('edit_assignment', assignment_id=assignment.id) }}">Edit</a>
+            {% endif %}
+        </li>
+    {% else %}
+        <li>No assignments yet.</li>
+    {% endfor %}
+</ul>
+{% if session.role == 'master' %}
+<h3>Create Assignment</h3>
+<form method="POST" action="{{ url_for('create_assignment', space_id=space.id) }}" enctype="multipart/form-data">
+    <input type="text" name="title" placeholder="Title" required><br>
+    <textarea name="description" placeholder="Description"></textarea><br>
+    <input type="datetime-local" name="due_date"><br>
+    <label>Solution File (recommended for best results, optional)</label>
+    <input type="file" name="solution" accept="application/pdf, text/*"><br>
+    <button type="submit">Create</button>
+</form>
+{% endif %}
+{% endblock %}

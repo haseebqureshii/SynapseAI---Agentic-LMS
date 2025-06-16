@@ -3,6 +3,9 @@
 <h2>{{ assignment.title }}</h2>
 <p>{{ assignment.description }}</p>
 <p>Due: {{ assignment.due_date.strftime('%Y-%m-%d %H:%M') if assignment.due_date else 'N/A' }}</p>
+{% if assignment.solution_file_path %}
+<p>Solution: <a href="{{ url_for('uploaded_file', filename=assignment.solution_file_path.split('/')[-1]) }}">Download</a></p>
+{% endif %}
 
 {% if submission %}
     <p><strong>Submitted:</strong> {{ submission.timestamp }}</p>

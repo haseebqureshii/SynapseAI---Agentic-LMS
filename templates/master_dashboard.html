@@ -3,7 +3,7 @@
 <h2>Your Course Spaces</h2>
 <ul>
     {% for space in spaces %}
-        <li>{{ space.name }} (Code: {{ space.unique_code }})</li>
+        <li><a href="{{ url_for('space_detail', space_id=space.id) }}">{{ space.name }}</a> (Code: {{ space.unique_code }})</li>
     {% endfor %}
 </ul>
 <h3>Create New Space</h3>
