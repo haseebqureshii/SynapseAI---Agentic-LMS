@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Your Joined Spaces</h2>
+<ul>
+    {% for space in spaces %}
+        <li>{{ space.name }} (Code: {{ space.unique_code }})</li>
+    {% endfor %}
+</ul>
+<h3>Join a Space</h3>
+<form method="POST" action="{{ url_for('join_space') }}">
+    <input type="text" name="code" placeholder="Enter Code" required>
+    <button type="submit">Join</button>
+</form>
+{% endblock %}

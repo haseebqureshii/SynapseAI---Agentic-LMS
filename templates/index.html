@@ -1,0 +1,7 @@
+{% extends 'base.html' %}
+{% block content %}
+<h1>Welcome to SynapseAI</h1>
+{% if not session.user_id %}
+    <p>Please <a href="{{ url_for('login') }}">login with Google</a> to continue.</p>
+{% endif %}
+{% endblock %}
