@@ -1,6 +1,7 @@
 import os
-from flask import Flask, redirect, url_for, session, render_template, request, flash
+from flask import Flask, redirect, url_for, session, render_template, request, flash, send_from_directory
 from models import db, User, Space, SpaceMember, Assignment, Submission
+from datetime import datetime
 from requests_oauthlib import OAuth2Session
 from dotenv import load_dotenv
 
@@ -27,11 +28,48 @@ GOOGLE_CLIENT_ID = os.getenv('GOOGLE_CLIENT_ID')
 GOOGLE_CLIENT_SECRET = os.getenv('GOOGLE_CLIENT_SECRET')
 GOOGLE_DISCOVERY_URL = os.getenv('GOOGLE_DISCOVERY_URL')
 
+# Allowed file extensions for pupil submissions
+ALLOWED_SUBMISSION_EXTENSIONS = {'pdf', 'py'}
+
+
+def allowed_file(filename: str, allowed_extensions: set) -> bool:
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in allowed_extensions
+
 # Utility to get Google provider configuration
 import requests
+import smtplib
+from email.message import EmailMessage
 
 def get_google_provider_cfg():
     return requests.get(GOOGLE_DISCOVERY_URL).json()
+
+
+def send_email(to_address: str, subject: str, body: str):
+    """Send an email. Uses SMTP credentials from environment.
+
+    This is a best-effort implementation; if sending fails, we simply log the
+    message to the console.
+    """
+    smtp_server = os.getenv('SMTP_SERVER')
+    smtp_port = int(os.getenv('SMTP_PORT', '587'))
+    smtp_user = os.getenv('SMTP_USER')
+    smtp_password = os.getenv('SMTP_PASSWORD')
+    if not smtp_server or not smtp_user or not smtp_password:
+        print(f"Email to {to_address}: {subject}\n{body}")
+        return
+    try:
+        msg = EmailMessage()
+        msg['Subject'] = subject
+        msg['From'] = smtp_user
+        msg['To'] = to_address
+        msg.set_content(body)
+        with smtplib.SMTP(smtp_server, smtp_port) as server:
+            server.starttls()
+            server.login(smtp_user, smtp_password)
+            server.send_message(msg)
+    except Exception as e:
+        print('Failed to send email:', e)
+        print(f"Email to {to_address}: {subject}\n{body}")
 
 @app.route('/')
 def index():
@@ -113,6 +151,83 @@ def create_space():
     db.session.commit()
     return redirect(url_for('master_dashboard'))
 
+
+@app.route('/space/<int:space_id>')
+def space_detail(space_id):
+    space = Space.query.get_or_404(space_id)
+    assignments = Assignment.query.filter_by(space_id=space.id).all()
+    return render_template('space_detail.html', space=space, assignments=assignments)
+
+
+@app.route('/create_assignment/<int:space_id>', methods=['POST'])
+def create_assignment(space_id):
+    if session.get('role') != 'master':
+        flash('Access denied.')
+        return redirect(url_for('index'))
+    space = Space.query.get_or_404(space_id)
+    title = request.form.get('title')
+    description = request.form.get('description')
+    due_date = request.form.get('due_date')
+    solution_file = request.files.get('solution')
+
+    assignment = Assignment(space_id=space.id, title=title, description=description)
+    if due_date:
+        try:
+            assignment.due_date = datetime.fromisoformat(due_date)
+        except ValueError:
+            flash('Invalid due date format.')
+    db.session.add(assignment)
+    db.session.commit()
+
+    if solution_file and allowed_file(solution_file.filename, {'pdf', 'py', 'txt'}):
+        filename = f"solution_{assignment.id}_{solution_file.filename}"
+        path = os.path.join('uploads', filename)
+        os.makedirs('uploads', exist_ok=True)
+        solution_file.save(path)
+        assignment.solution_file_path = path
+        db.session.commit()
+
+    return redirect(url_for('space_detail', space_id=space.id))
+
+
+@app.route('/edit_assignment/<int:assignment_id>', methods=['GET', 'POST'])
+def edit_assignment(assignment_id):
+    if session.get('role') != 'master':
+        flash('Access denied.')
+        return redirect(url_for('index'))
+    assignment = Assignment.query.get_or_404(assignment_id)
+    space = assignment.space
+    if request.method == 'POST':
+        assignment.title = request.form.get('title')
+        assignment.description = request.form.get('description')
+        due_date = request.form.get('due_date')
+        if due_date:
+            try:
+                assignment.due_date = datetime.fromisoformat(due_date)
+            except ValueError:
+                flash('Invalid due date format.')
+        else:
+            assignment.due_date = None
+        solution_file = request.files.get('solution')
+        if solution_file and allowed_file(solution_file.filename, {'pdf', 'py', 'txt'}):
+            filename = f"solution_{assignment.id}_{solution_file.filename}"
+            path = os.path.join('uploads', filename)
+            os.makedirs('uploads', exist_ok=True)
+            solution_file.save(path)
+            assignment.solution_file_path = path
+        db.session.commit()
+
+        # notify pupils
+        members = SpaceMember.query.filter_by(space_id=space.id).all()
+        for m in members:
+            user = User.query.get(m.user_id)
+            if user:
+                send_email(user.email, f'Assignment updated: {assignment.title}',
+                           f'The assignment "{assignment.title}" has been updated.')
+        flash('Assignment updated and pupils notified.')
+        return redirect(url_for('space_detail', space_id=space.id))
+    return render_template('edit_assignment.html', assignment=assignment, space=space)
+
 @app.route('/join_space', methods=['POST'])
 def join_space():
     if session.get('role') != 'pupil':
@@ -140,8 +255,8 @@ def submit_assignment(assignment_id):
         flash('You have already submitted this assignment.')
         return redirect(url_for('assignment_detail', assignment_id=assignment_id))
     file = request.files.get('file')
-    if not file:
-        flash('No file uploaded.')
+    if not file or not allowed_file(file.filename, ALLOWED_SUBMISSION_EXTENSIONS):
+        flash('Invalid or missing file. Allowed types: pdf, py')
         return redirect(url_for('assignment_detail', assignment_id=assignment_id))
     filename = f"sub_{assignment_id}_{user_id}_{file.filename}"
     path = os.path.join('uploads', filename)
@@ -160,6 +275,11 @@ def assignment_detail(assignment_id):
     if session.get('role') == 'pupil':
         submission = Submission.query.filter_by(assignment_id=assignment_id, pupil_id=session['user_id']).first()
     return render_template('assignment_detail.html', assignment=assignment, submission=submission)
+
+
+@app.route('/uploads/<path:filename>')
+def uploaded_file(filename):
+    return send_from_directory('uploads', filename)
 
 if __name__ == '__main__':
     app.run(debug=True)
