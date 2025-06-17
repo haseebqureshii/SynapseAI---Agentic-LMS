@@ -1,13 +1,19 @@
 {% extends 'base.html' %}
 {% block content %}
-<h2>Edit Assignment: {{ assignment.title }}</h2>
+<h2 class="mdl-typography--display-1">Edit Assignment: {{ assignment.title }}</h2>
 <form method="POST" enctype="multipart/form-data">
-    <input type="text" name="title" value="{{ assignment.title }}" required><br>
-    <textarea name="description">{{ assignment.description }}</textarea><br>
-    <input type="datetime-local" name="due_date" value="{{ assignment.due_date.strftime('%Y-%m-%dT%H:%M') if assignment.due_date else '' }}"><br>
-    <label>Solution File (recommended for best results, optional)</label>
+    <div class="mdl-textfield mdl-js-textfield">
+        <input class="mdl-textfield__input" type="text" name="title" id="edit_title" value="{{ assignment.title }}" required>
+        <label class="mdl-textfield__label" for="edit_title">Title</label>
+    </div><br>
+    <div class="mdl-textfield mdl-js-textfield">
+        <textarea class="mdl-textfield__input" name="description" id="edit_description">{{ assignment.description }}</textarea>
+        <label class="mdl-textfield__label" for="edit_description">Description</label>
+    </div><br>
+    <input class="mdl-textfield__input" type="datetime-local" name="due_date" value="{{ assignment.due_date.strftime('%Y-%m-%dT%H:%M') if assignment.due_date else '' }}"><br>
+    <label class="mdl-textfield">Solution File (optional)</label>
     <input type="file" name="solution" accept="application/pdf, text/*"><br>
-    <button type="submit">Save</button>
+    <button class="mdl-button mdl-js-button mdl-button--raised mdl-button--colored" type="submit">Save</button>
 </form>
 {% if assignment.solution_file_path %}
 <p>Current solution: <a href="{{ url_for('uploaded_file', filename=assignment.solution_file_path.split('/')[-1]) }}">Download</a></p>

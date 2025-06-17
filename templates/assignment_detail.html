@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 {% block content %}
-<h2>{{ assignment.title }}</h2>
+<h2 class="mdl-typography--display-1">{{ assignment.title }}</h2>
 <p>{{ assignment.description }}</p>
 <p>Due: {{ assignment.due_date.strftime('%Y-%m-%d %H:%M') if assignment.due_date else 'N/A' }}</p>
 {% if assignment.solution_file_path %}
@@ -14,7 +14,7 @@
     <p>You may submit once. Please ensure your file is final before uploading.</p>
     <form method="POST" action="{{ url_for('submit_assignment', assignment_id=assignment.id) }}" enctype="multipart/form-data">
         <input type="file" name="file" accept="application/pdf, text/*" required>
-        <button type="submit">Submit Assignment</button>
+        <button class="mdl-button mdl-js-button mdl-button--raised mdl-button--colored" type="submit">Submit Assignment</button>
     </form>
 {% endif %}
 {% endblock %}

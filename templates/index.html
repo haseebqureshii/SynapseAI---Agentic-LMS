@@ -1,7 +1,10 @@
 {% extends 'base.html' %}
 {% block content %}
-<h1>Welcome to SynapseAI</h1>
+<h1 class="mdl-typography--display-2">Welcome to SynapseAI</h1>
 {% if not session.user_id %}
-    <p>Please <a href="{{ url_for('login') }}">login with Google</a> to continue.</p>
+    <p>Please
+        <a class="mdl-button mdl-js-button mdl-button--raised mdl-button--colored" href="{{ url_for('login') }}">Login with Google</a>
+        to continue.
+    </p>
 {% endif %}
 {% endblock %}
