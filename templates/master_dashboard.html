@@ -1,14 +1,22 @@
 {% extends 'base.html' %}
 {% block content %}
-<h2>Your Course Spaces</h2>
-<ul>
+<h2 class="mdl-typography--display-1">Your Course Spaces</h2>
+<ul class="mdl-list">
     {% for space in spaces %}
-        <li><a href="{{ url_for('space_detail', space_id=space.id) }}">{{ space.name }}</a> (Code: {{ space.unique_code }})</li>
+        <li class="mdl-list__item">
+            <span class="mdl-list__item-primary-content">
+                <a href="{{ url_for('space_detail', space_id=space.id) }}">{{ space.name }}</a>
+                <span class="mdl-list__item-sub-title">Code: {{ space.unique_code }}</span>
+            </span>
+        </li>
     {% endfor %}
 </ul>
-<h3>Create New Space</h3>
+<h3 class="mdl-typography--title">Create New Space</h3>
 <form method="POST" action="{{ url_for('create_space') }}">
-    <input type="text" name="name" placeholder="Space Name" required>
-    <button type="submit">Create</button>
+    <div class="mdl-textfield mdl-js-textfield">
+        <input class="mdl-textfield__input" type="text" name="name" id="space_name" required>
+        <label class="mdl-textfield__label" for="space_name">Space Name</label>
+    </div>
+    <button class="mdl-button mdl-js-button mdl-button--raised mdl-button--colored" type="submit">Create</button>
 </form>
 {% endblock %}
