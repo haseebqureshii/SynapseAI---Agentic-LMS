@@ -4,8 +4,7 @@ from models import db, User, Space, SpaceMember, Assignment, Submission
 from datetime import datetime
 from requests_oauthlib import OAuth2Session
 from dotenv import load_dotenv
-
-import os
+from config import Config
 
 load_dotenv()
 
@@ -13,6 +12,7 @@ load_dotenv()
 os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
 
 app = Flask(__name__)
+app.config.from_object(Config)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False

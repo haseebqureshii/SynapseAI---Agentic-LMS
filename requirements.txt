@@ -5,3 +5,4 @@ requests
 requests-oauthlib
 python-dotenv
 gunicorn
+google.generativeai
