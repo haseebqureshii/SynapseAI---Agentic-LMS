@@ -1,7 +1,21 @@
 from flask_sqlalchemy import SQLAlchemy
-from datetime import datetime
+import datetime
+import secrets
 
-db = SQLAlchemy()
+from sqlalchemy import MetaData
+
+# --- Define Naming Convention ---
+convention = {
+    "ix": "ix_%(column_0_label)s",
+    "uq": "uq_%(table_name)s_%(column_0_name)s",
+    "ck": "ck_%(table_name)s_%(constraint_name)s",
+    "fk": "fk_%(table_name)s_%(column_0_name)s_%(referred_table_name)s",
+    "pk": "pk_%(table_name)s"
+}
+# This metadata object will be passed to SQLAlchemy
+metadata = MetaData(naming_convention=convention)
+
+db = SQLAlchemy(metadata=metadata)
 
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -11,6 +25,10 @@ class User(db.Model):
     role = db.Column(db.String(10), nullable=False)  # 'master' or 'pupil'
     spaces = db.relationship('Space', backref='master', lazy=True)
     submissions = db.relationship('Submission', backref='pupil', lazy=True)
+    api_key = db.Column(db.String(64), unique=True, nullable=True) # Store API key for users/clients
+
+    def generate_api_key(self):
+        self.api_key = secrets.token_urlsafe(32) # Generates a random, URL-safe string
 
 class Space(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -39,5 +57,8 @@ class Submission(db.Model):
     assignment_id = db.Column(db.Integer, db.ForeignKey('assignment.id'), nullable=False)
     pupil_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     file_path = db.Column(db.String(512), nullable=False)
-    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+    timestamp = db.Column(db.DateTime, default=datetime.datetime.now(datetime.timezone.utc))
     attempted = db.Column(db.Boolean, default=True)
+    llm_feedback_report = db.Column(db.Text, nullable=True)
+    integrity_flag = db.Column(db.String(50), nullable=True)
+    llm_score = db.Column(db.Float, nullable=True)

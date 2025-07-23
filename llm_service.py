@@ -2,29 +2,57 @@ from google import genai
 from google.genai import types
 import base64
 import mimetypes
-import os
+from google.cloud import storage
 
 class GeminiService:
     def __init__(self, api_key):
-        # API key is now passed directly to the Client constructor
-        self.client = genai.Client(api_key=api_key) # <- Changed initialization
-        self.model = self.client.models.get('gemini-pro-vision') # Or 'gemini-1.5-flash' etc.
+        self.client = genai.Client(api_key=api_key)
+        # Use get() for specific model or list() to find available models
+        self.model = self.client.models.get('gemini-1.5-flash') # Recommended for cost/speed balance
+        self.storage_client = storage.Client() # Initialize GCS client
 
-    def _prepare_pdf_part(self, file_path):
-        """Prepares a PDF file as a Google Generative AI Part object."""
+    def _get_file_bytes_from_gcs(self, gcs_url):
+        """Downloads file content from a GCS URL as bytes."""
         try:
-            mime_type, _ = mimetypes.guess_type(file_path)
-            if not mime_type or not mime_type.startswith('application/pdf'):
-                raise ValueError(f"File {file_path} is not a PDF or MIME type is unknown.")
+            # Parse gs://bucket-name/path/to/blob.pdf
+            if not gcs_url.startswith('gs://'):
+                raise ValueError("GCS URL must start with 'gs://'")
+            parts = gcs_url[5:].split('/', 1)
+            if len(parts) < 2:
+                raise ValueError("Invalid GCS URL format")
+            bucket_name, blob_name = parts[0], parts[1]
 
-            with open(file_path, 'rb') as f:
+            bucket = self.storage_client.bucket(bucket_name)
+            blob = bucket.blob(blob_name)
+            if not blob.exists():
+                raise FileNotFoundError(f"GCS blob not found: {gcs_url}")
+            return blob.download_as_bytes()
+        except Exception as e:
+            print(f"Error downloading from GCS: {e}")
+            raise
+
+    def _prepare_pdf_part(self, file_source_path_or_url):
+        """
+        Prepares a PDF file as a Google Generative AI Part object.
+        Accepts either a local file path or a GCS URL (gs://...).
+        """
+        if file_source_path_or_url.startswith('gs://'):
+            file_bytes = self._get_file_bytes_from_gcs(file_source_path_or_url)
+            # For GCS URLs, try to infer MIME type from extension
+            mime_type, _ = mimetypes.guess_type(file_source_path_or_url)
+            if not mime_type: # Fallback if guess_type fails for URL
+                if file_source_path_or_url.lower().endswith('.pdf'):
+                    mime_type = 'application/pdf'
+                else:
+                    raise ValueError(f"Could not determine MIME type for GCS URL: {file_source_path_or_url}")
+        else: # Assume local file path for now (e.g., if you still save temporary files)
+            mime_type, _ = mimetypes.guess_type(file_source_path_or_url)
+            if not mime_type or not mime_type.startswith('application/pdf'):
+                raise ValueError(f"File {file_source_path_or_url} is not a PDF or MIME type is unknown.")
+            with open(file_source_path_or_url, 'rb') as f:
                 file_bytes = f.read()
 
-            # Direct instantiation with keyword arguments for types.Part
-            return types.Part(data=file_bytes, mime_type=mime_type) # <- Changed Part creation
-        except Exception as e:
-            print(f"Error preparing PDF part: {e}")
-            raise
+        return types.Part(data=file_bytes, mime_type=mime_type)
 
     def get_assignment_feedback(self, student_submission_pdf_path, professor_solution_pdf_path, course_name=""):
         """

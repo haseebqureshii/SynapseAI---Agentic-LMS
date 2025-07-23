@@ -5,4 +5,5 @@ requests
 requests-oauthlib
 python-dotenv
 gunicorn
-google.generativeai
+google-genai
+google-cloud-storage
